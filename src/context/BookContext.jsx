@@ -1,7 +1,11 @@
-import { createContext } from "react";
+import { createContext, useEffect } from "react";
 import { useRef, useState } from "react";
 
 const BookContext = createContext();
+
+// firestore
+import { getDocs, addDoc, deleteDoc, doc } from "firebase/firestore";
+import { booksRef } from "../services/firebase";
 
 export const BookProvider = ({ children }) => {
   const titleRef = useRef();
@@ -9,31 +13,22 @@ export const BookProvider = ({ children }) => {
   const pagesRef = useRef();
   const readRef = useRef();
 
-  const [books, setBooks] = useState([
-    {
-      id: 1,
-      title: "Lord Of the Rings",
-      author: "J.R.R. Tolkien",
-      pages: 500,
-      read: false,
-    },
-    {
-      id: 2,
-      title: "Harry Potter and the Philosophers Stone",
-      author: "J.K. Rowling",
-      pages: 300,
-      read: true,
-    },
-    {
-      id: 3,
-      title: "Amnesia",
-      author: "Chuck Palahniuk",
-      pages: 500,
-      read: true,
-    },
-  ]);
+  const [books, setBooks] = useState([]);
 
-  const handleSubmit = (e) => {
+  const getAllBooks = async () => {
+    const querySnap = await getDocs(booksRef);
+    let temp = [];
+    querySnap.forEach((doc) => {
+      temp.push({ ...doc.data(), id: doc.id });
+    });
+    setBooks(temp);
+  };
+
+  useEffect(() => {
+    getAllBooks();
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const book = {
@@ -41,7 +36,6 @@ export const BookProvider = ({ children }) => {
       title: titleRef.current.value,
       pages: pagesRef.current.value,
       read: readRef.current.checked,
-      id: new Date(),
     };
 
     if (!titleRef.current.value) {
@@ -64,12 +58,14 @@ export const BookProvider = ({ children }) => {
       return;
     }
 
-    setBooks([...books, book]);
-    console.log(book);
+    const docRef = await addDoc(booksRef, book);
+    setBooks([...books, { ...book, id: docRef.id }]);
     document.querySelector("form").reset();
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
+    const docRef = await deleteDoc(doc(booksRef, id));
+
     const filtered = books.filter((book) => {
       return book.id !== id;
     });
